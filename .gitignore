@@ -1,0 +1,11 @@
+data/cached*
+
+ckpt/*
+
+consol_output/*
+
+prec.py
+
+_pycache_
+
+data/*
