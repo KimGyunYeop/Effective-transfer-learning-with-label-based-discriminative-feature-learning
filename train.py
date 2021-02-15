@@ -353,7 +353,7 @@ if __name__ == '__main__':
     cli_parser.add_argument("--dataset", type=str, required=True)
     cli_parser.add_argument("--result_dir", type=str, required=True)
     cli_parser.add_argument("--model_mode", type=str, required=True, choices=MODEL_LIST.keys())
-    cli_parser.add_argument("--transformer_mode", type=str, default="ALBERT", choices=MODEL_LIST.keys())
+    cli_parser.add_argument("--transformer_mode", type=str, default="ALBERT")
     cli_parser.add_argument("--gpu", type=str, default = 0)
 
     cli_args = cli_parser.parse_args()
