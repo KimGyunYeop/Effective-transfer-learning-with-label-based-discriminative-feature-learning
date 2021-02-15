@@ -1,7 +1,7 @@
 #!/bin/bash
 
 datas=("SST-5" "aclImdb" "SST-2" "MR")
-model_mode="Star_Label_ANN"
+model_mode="Star_Label_AM"
 tf_mode="ELECTRA"
 
 echo datas

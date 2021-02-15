@@ -282,7 +282,7 @@ def main(cli_args):
     if cli_args.transformer_mode.upper() == "T5":
         model_link = "t5-base"
     elif cli_args.transformer_mode.upper() == "ELECTRA":
-        model_link = "google/electra-large-discriminator"
+        model_link = "google/electra-base-discriminator"
     elif cli_args.transformer_mode.upper() == "ALBERT":
         model_link = "albert-base-v2"
 
