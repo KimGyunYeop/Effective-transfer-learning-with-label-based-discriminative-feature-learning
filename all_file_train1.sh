@@ -6,5 +6,5 @@ tf_mode="ELECTRA"
 
 echo datas
 for data in ${datas[@]}; do
-  python3 -u train.py --result_dir ${model_mode}_${data}_${tf_mode} --model_mode ${model_mode} --dataset ${data} --transformer_mode ${tf_mode} --gpu 0
+  python3 -u train.py --result_dir ${model_mode}_${data}_${tf_mode} --model_mode ${model_mode} --dataset ${data} --transformer_mode ${tf_mode} --gpu 1
 done
