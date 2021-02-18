@@ -35,7 +35,7 @@ class BaseModel(nn.Module):
         loss_fct = nn.CrossEntropyLoss()
         loss1 = loss_fct(outputs.view(-1, self.labelNumber), labels.view(-1))
 
-        result = (loss1, outputs)
+        result = (loss1, outputs, embs[:, 0, :])
 
         return result
 
@@ -91,7 +91,7 @@ class Star_Label_AM(nn.Module):
                         star,
                         torch.ones(batch_size).to(self.config.device))
 
-        result = ((loss1, 0.5 * loss2, 0.5 * loss3), outputs)
+        result = ((loss1, 0.5 * loss2, 0.5 * loss3), outputs, embs[:, 0, :])
 
         return result
 
@@ -152,7 +152,7 @@ class Star_Label_AM_w_linear(nn.Module):
                         star,
                         torch.ones(batch_size).to(self.config.device))
 
-        result = ((loss1, 0.5 * loss2, 0.5 * loss3), outputs)
+        result = ((loss1, 0.5 * loss2, 0.5 * loss3), outputs, embs[:, 0, :])
 
         return result
 
@@ -223,7 +223,7 @@ class Star_Label_AM_att(nn.Module):
                         star,
                         torch.ones(batch_size).to(self.config.device))
 
-        result = ((loss1, 0.5 * loss2, 0.5 * loss3), outputs)
+        result = ((loss1, 0.5 * loss2, 0.5 * loss3), outputs, embs[:, 0, :])
 
         return result
 
@@ -278,7 +278,7 @@ class Star_Label_ANN(nn.Module):
                         star,
                         torch.ones(batch_size).to(self.config.device))
 
-        result = ((loss1, 0.5 * loss2, 0.5 * loss3), outputs)
+        result = ((loss1, 0.5 * loss2, 0.5 * loss3), outputs, embs[:, 0, :])
 
         return result
 
@@ -339,7 +339,7 @@ class Star_Label_ANN_w_linear(nn.Module):
                         star,
                         torch.ones(batch_size).to(self.config.device))
 
-        result = ((loss1, 0.5 * loss2, 0.5 * loss3), outputs)
+        result = ((loss1, 0.5 * loss2, 0.5 * loss3), outputs, embs[:, 0, :])
 
         return result
 
