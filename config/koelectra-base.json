@@ -2,7 +2,7 @@
   "data_dir": "data",
   "ckpt_dir": "ckpt",
   "train_file": "train.tsv",
-  "dev_file": "dev.tsv",
+  "dev_file": "val.tsv",
   "test_file": "test.tsv",
   "evaluate_test_during_training": true,
   "eval_all_checkpoints": true,

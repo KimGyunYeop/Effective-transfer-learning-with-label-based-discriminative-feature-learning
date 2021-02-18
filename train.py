@@ -135,12 +135,8 @@ def train(args,
                 global_step += 1
 
                 if args.logging_steps > 0 and global_step % args.logging_steps == 0:
-                    if args.evaluate_test_during_training:
-                        results = evaluate(args, model, test_dataset, "test", global_step)
-                        acc = str(results['acc'])
-                    else:
-                        results = evaluate(args, model, dev_dataset, "dev", global_step)
-                        acc = str(results['acc'])
+                    results = evaluate(args, model, dev_dataset, "dev", global_step)
+                    acc = str(results['acc'])
 
                 if args.save_steps > 0 and global_step % args.save_steps == 0:
                     # Save model checkpoint
