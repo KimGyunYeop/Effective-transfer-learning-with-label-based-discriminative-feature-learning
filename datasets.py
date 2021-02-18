@@ -47,5 +47,5 @@ DATASET_LIST = {
     "Star_Label_ANN" : BaseDataset,
     "Star_Label_ANN_w_linear" : BaseDataset,
     "Star_Label_AM_att": BaseDataset,
-    "baseELECTRA": BaseDataset
+    "BaseModel": BaseDataset
 }

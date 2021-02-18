@@ -298,7 +298,7 @@ def main(cli_args):
     if dev_dataset == None:
         args.evaluate_test_during_training = True  # If there is no dev dataset, only use testset
 
-    args.logging_steps = int(len(train_dataset) / args.train_batch_size) + 2
+    args.logging_steps = int(len(train_dataset) / args.train_batch_size) + 1
     args.save_steps = args.logging_steps
     labelNumber = train_dataset.getLabelNumber()
 

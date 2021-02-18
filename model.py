@@ -7,9 +7,9 @@ from src import (
 )
 from transformers import AutoModel
 
-class baseELECTRA(nn.Module):
+class BaseModel(nn.Module):
     def __init__(self, transformers_mode, model_type, model_name_or_path, config, labelNumber):
-        super(baseELECTRA, self).__init__()
+        super(BaseModel, self).__init__()
         self.emb = AutoModel.from_pretrained(transformers_mode)
         self.dense = nn.Linear(768, 768)
         self.dropout = nn.Dropout(0.2)
@@ -349,5 +349,5 @@ MODEL_LIST = {
     "Star_Label_ANN" : Star_Label_ANN,
     "Star_Label_ANN_w_linear" : Star_Label_ANN_w_linear,
     "Star_Label_AM_att": Star_Label_AM_att,
-    "baseELECTRA": baseELECTRA
+    "BaseModel": BaseModel
 }
