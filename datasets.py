@@ -16,6 +16,8 @@ class BaseDataset(Dataset):
             data_path = os.path.join(args.data_dir, args.train_file)
         elif "dev" in mode:
             data_path = os.path.join(args.data_dir,  args.dev_file)
+            if not os.path.isfile(data_path):
+                data_path = os.path.join(args.data_dir, args.test_file)
         elif "test" in mode:
             data_path = os.path.join(args.data_dir, args.test_file)
         self.dataset = pd.read_csv(data_path, encoding="utf8", sep="\t")

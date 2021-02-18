@@ -15,7 +15,14 @@ from src import (
     CONFIG_CLASSES,
     TOKENIZER_CLASSES,
     init_logger,
-    compute_metrics
+    compute_metrics,
+    set_seed
+)
+from transformers import (
+    AdamW,
+    get_linear_schedule_with_warmup,
+    AutoTokenizer,
+    AutoConfig
 )
 
 logger = logging.getLogger(__name__)
@@ -48,25 +55,24 @@ def evaluate(args, model, eval_dataset, mode, global_step=None):
         batch = tuple(t.to(args.device) for t in batch)
 
         with torch.no_grad():
-            inputs = {
-                "input_ids": batch[0],
-                "attention_mask": batch[1],
-                "labels": batch[3]
-            }
-            if args.model_type not in ["distilkobert", "xlm-roberta"]:
-                inputs["token_type_ids"] = batch[2]  # Distilkobert, XLM-Roberta don't use segment_ids
+            model.eval()
+            batch = tuple(t.to(args.device) for t in batch)
 
-            if "KOSAC" in args.model_mode:
-                inputs["polarity_ids"] = batch[4]
-                inputs["intensity_ids"] = batch[5]
-
-            if "KNU" in args.model_mode:
-                inputs["polarity_ids"] = batch[4]
-
-            if "CHAR" in args.model_mode:
-                inputs["char_token_data"] = txt[1]
-                inputs["word_token_data"] = txt[2]
-                txt = txt[0]
+            with torch.no_grad():
+                if len(batch) == 4:
+                    inputs = {
+                        "input_ids": batch[0],
+                        "attention_mask": batch[1],
+                        "token_type_ids": batch[2],
+                        "labels": batch[3]
+                    }
+                else:
+                    inputs = {
+                        "input_ids": batch[0],
+                        "attention_mask": batch[1],
+                        "token_type_ids": None,
+                        "labels": batch[2]
+                    }
 
             outputs = model(**inputs)
             tmp_eval_loss, logits = outputs[:2]
@@ -82,19 +88,9 @@ def evaluate(args, model, eval_dataset, mode, global_step=None):
         nb_eval_steps += 1
         if preds is None:
             preds = logits.detach().cpu().numpy()
-            if "KOSAC" in args.model_mode:
-                polarity_ids = inputs["polarity_ids"].detach().cpu().numpy()
-                intensity_ids = inputs["intensity_ids"].detach().cpu().numpy()
-            if "KNU" in args.model_mode:
-                polarity_ids = inputs["polarity_ids"].detach().cpu().numpy()
             out_label_ids = inputs["labels"].detach().cpu().numpy()
         else:
             preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
-            if "KOSAC" in args.model_mode:
-                polarity_ids = np.vstack((polarity_ids, inputs["polarity_ids"].detach().cpu().numpy()))
-                intensity_ids = np.vstack((intensity_ids, inputs["intensity_ids"].detach().cpu().numpy()))
-            if "KNU" in args.model_mode:
-                polarity_ids = np.vstack((polarity_ids, inputs["polarity_ids"].detach().cpu().numpy()))
             out_label_ids = np.append(out_label_ids, inputs["labels"].detach().cpu().numpy(), axis=0)
 
     eval_loss = eval_loss / nb_eval_steps
@@ -115,12 +111,7 @@ def evaluate(args, model, eval_dataset, mode, global_step=None):
             logger.info("  {} = {}".format(key, str(results[key])))
             f_w.write("  {} = {}\n".format(key, str(results[key])))
 
-    if "KOSAC" in args.model_mode:
-        return preds, out_label_ids, results, txt_all, polarity_ids, intensity_ids
-    elif "KNU" in args.model_mode:
-        return preds, out_label_ids, results, txt_all, polarity_ids
-    else:
-        return preds, out_label_ids, results, txt_all
+    return preds, out_label_ids, results, txt_all
 
 
 def main(cli_args):
@@ -140,37 +131,47 @@ def main(cli_args):
     args.device = "cuda:"+str(cli_args.gpu)
 
     init_logger()
+    set_seed(args)
 
-    labels = ["0", "1"]
-    config = CONFIG_CLASSES[args.model_type].from_pretrained(
-        args.model_name_or_path,
-        num_labels=2,
-        id2label={str(i): label for i, label in enumerate(labels)},
-        label2id={label: i for i, label in enumerate(labels)},
-    )
+    model_link = None
+    if cli_args.transformer_mode.upper() == "T5":
+        model_link = "t5-base"
+    elif cli_args.transformer_mode.upper() == "ELECTRA":
+        model_link = "google/electra-base-discriminator"
+    elif cli_args.transformer_mode.upper() == "ALBERT":
+        model_link = "albert-base-v2"
 
-    tokenizer = TOKENIZER_CLASSES[args.model_type].from_pretrained(
-        args.model_name_or_path,
-        do_lower_case=args.do_lower_case
-    )
+    tokenizer = AutoTokenizer.from_pretrained(model_link)
+
+    args.test_file = os.path.join(cli_args.dataset, args.test_file)
+    args.train_file = os.path.join(cli_args.dataset, args.train_file)
+    # Load dataset
+    train_dataset = DATASET_LIST[cli_args.model_mode](args, tokenizer, mode="train") if args.train_file else None
+    dev_dataset = BaseDataset(args, tokenizer, mode="dev") if args.dev_file else None
+    test_dataset = BaseDataset(args, tokenizer, mode="test") if args.test_file else None
+
+    if dev_dataset == None:
+        args.evaluate_test_during_training = True  # If there is no dev dataset, only use testset
+
+    args.logging_steps = int(len(train_dataset) / args.train_batch_size) + 1
+    args.save_steps = args.logging_steps
+    labelNumber = train_dataset.getLabelNumber()
+
+    labels = [str(i) for i in range(labelNumber)]
+    config = AutoConfig.from_pretrained(model_link)
+
     args.device = "cuda:{}".format(cli_args.gpu) if torch.cuda.is_available() and not args.no_cuda else "cpu"
     config.device = args.device
-    print(args.test_file)
-    # Load dataset
-    test_dataset = BaseDataset(args, tokenizer, mode="test") if args.test_file else None
+    args.model_mode = cli_args.model_mode
 
     logger.info("Testing model checkpoint to {}".format(max_checkpoint))
     global_step = max_checkpoint.split("-")[-1]
-    model = MODEL_LIST[cli_args.model_mode](args.model_type, args.model_name_or_path, config)
+    model = MODEL_LIST[cli_args.model_mode](model_link, args.model_type, args.model_name_or_path, config, labelNumber)
     model.load_state_dict(torch.load(os.path.join("ckpt", cli_args.result_dir, max_checkpoint, "training_model.bin")))
 
     model.to(args.device)
 
-    if "KOSAC" in args.model_mode:
-        preds, labels, result, txt_all, polarity_ids, intensity_ids = evaluate(args, model, test_dataset, mode="test",
-                                                                             global_step=global_step)
-    else:
-        preds, labels, result, txt_all= evaluate(args, model, test_dataset, mode="test",
+    preds, labels, result, txt_all= evaluate(args, model, test_dataset, mode="test",
                                                                                global_step=global_step)
     pred_and_labels = pd.DataFrame([])
     pred_and_labels["data"] = txt_all
@@ -181,11 +182,6 @@ def main(cli_args):
         pred_and_labels["data"].apply(lambda x: tokenizer.convert_ids_to_tokens(tokenizer(x)["input_ids"])))
     pred_and_labels["tokenizer"] = decode_result
 
-    if "KOSAC" in args.model_mode:
-        tok_an = [list(zip(x, test_dataset.convert_ids_to_polarity(y)[:len(x) + 1], test_dataset.convert_ids_to_intensity(z)[:len(x) + 1])) for x, y, z in
-                  zip(decode_result, polarity_ids, intensity_ids)]
-        pred_and_labels["tokenizer_analysis(token,polarity,intensitiy)"] = tok_an
-
     pred_and_labels.to_excel(os.path.join("ckpt", cli_args.result_dir, "test_result_" + max_checkpoint + ".xlsx"),
                              encoding="cp949")
 
@@ -195,9 +191,10 @@ if __name__ == '__main__':
 
     cli_parser.add_argument("--config_dir", type=str, default="config")
     cli_parser.add_argument("--config_file", type=str, default="koelectra-base.json")
+    cli_parser.add_argument("--dataset", type=str, required=True)
     cli_parser.add_argument("--result_dir", type=str, required=True)
     cli_parser.add_argument("--model_mode", type=str, required=True, choices=MODEL_LIST.keys())
-    cli_parser.add_argument("--test_file", type=str, default=None)
+    cli_parser.add_argument("--transformer_mode", type=str, required=True)
     cli_parser.add_argument("--gpu", type=str, default = 0)
 
     cli_args = cli_parser.parse_args()
