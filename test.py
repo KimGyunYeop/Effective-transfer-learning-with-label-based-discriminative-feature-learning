@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 
+from attrdict import AttrDict
 import numpy as np
 from torch.utils.data import DataLoader, SequentialSampler
 from fastprogress.fastprogress import progress_bar
@@ -119,16 +120,14 @@ def main(cli_args):
     max_checkpoint = "checkpoint-best"
 
     args = torch.load(os.path.join("ckpt", cli_args.result_dir, max_checkpoint, "training_args.bin"))
-    args.test_file = cli_args.test_file
     with open(os.path.join(cli_args.config_dir, cli_args.config_file)) as f:
-        config = json.load(f)
-        args.data_dir = config["data_dir"]
-        if args.test_file == None:
-            args.test_file = config["test_file"]
-    logger.info("Testing parameters {}".format(args))
+        args = AttrDict(json.load(f))
+    logger.info("Training/evaluation parameters {}".format(args))
+    logger.info("cliargs parameters {}".format(cli_args))
 
+    args.output_dir = os.path.join(args.ckpt_dir, cli_args.result_dir)
     args.model_mode = cli_args.model_mode
-    args.device = "cuda:"+str(cli_args.gpu)
+    args.device = "cuda:{}".format(cli_args.gpu) if torch.cuda.is_available() and not args.no_cuda else "cpu"
 
     init_logger()
     set_seed(args)
@@ -144,6 +143,7 @@ def main(cli_args):
     tokenizer = AutoTokenizer.from_pretrained(model_link)
 
     args.test_file = os.path.join(cli_args.dataset, args.test_file)
+    args.dev_file = os.path.join(cli_args.dataset, args.train_file)
     args.train_file = os.path.join(cli_args.dataset, args.train_file)
     # Load dataset
     train_dataset = DATASET_LIST[cli_args.model_mode](args, tokenizer, mode="train") if args.train_file else None
@@ -166,6 +166,12 @@ def main(cli_args):
 
     logger.info("Testing model checkpoint to {}".format(max_checkpoint))
     global_step = max_checkpoint.split("-")[-1]
+
+    # GPU or CPU
+    args.device = "cuda:{}".format(cli_args.gpu) if torch.cuda.is_available() and not args.no_cuda else "cpu"
+    config.device = args.device
+    args.model_mode = cli_args.model_mode
+
     model = MODEL_LIST[cli_args.model_mode](model_link, args.model_type, args.model_name_or_path, config, labelNumber)
     model.load_state_dict(torch.load(os.path.join("ckpt", cli_args.result_dir, max_checkpoint, "training_model.bin")))
 
@@ -182,7 +188,7 @@ def main(cli_args):
         pred_and_labels["data"].apply(lambda x: tokenizer.convert_ids_to_tokens(tokenizer(x)["input_ids"])))
     pred_and_labels["tokenizer"] = decode_result
 
-    pred_and_labels.to_excel(os.path.join("ckpt", cli_args.result_dir, "test_result_" + max_checkpoint + ".xlsx"),
+    pred_and_labels.to_csv(os.path.join("ckpt", cli_args.result_dir, "test_result_" + max_checkpoint + ".csv"),
                              encoding="cp949")
 
 

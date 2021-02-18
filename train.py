@@ -285,6 +285,7 @@ def main(cli_args):
     tokenizer = AutoTokenizer.from_pretrained(model_link)
 
     args.test_file = os.path.join(cli_args.dataset, args.test_file)
+    args.dev_file = os.path.join(cli_args.dataset, args.train_file)
     args.train_file = os.path.join(cli_args.dataset, args.train_file)
     # Load dataset
     train_dataset = DATASET_LIST[cli_args.model_mode](args, tokenizer, mode="train") if args.train_file else None
