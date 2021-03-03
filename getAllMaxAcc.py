@@ -30,7 +30,10 @@ for result_dir in result_dir_list[::-1]:
     setting_path = os.path.join("ckpt", result_dir, "checkpoint-best")
     setting = torch.load(os.path.join(setting_path, "training_args.bin"))
 
-    result_path = os.path.join("ckpt", result_dir, "test")
+    if os.path.exists(os.path.join("ckpt", result_dir, "dev")):
+        result_path = os.path.join("ckpt", result_dir, "dev")
+    else:
+        result_path = os.path.join("ckpt", result_dir, "test")
     epoch_list = os.listdir(result_path)
 
     acc_dict = dict()

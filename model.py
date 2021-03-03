@@ -8,7 +8,7 @@ from src import (
 from transformers import AutoModel
 
 class BaseModel(nn.Module):
-    def __init__(self, transformers_mode, model_type, model_name_or_path, config, labelNumber):
+    def __init__(self, transformers_mode, model_type, model_name_or_path, config, labelNumber, margin=-0.5):
         super(BaseModel, self).__init__()
         self.emb = AutoModel.from_pretrained(transformers_mode)
         self.dense = nn.Linear(768, 768)
@@ -18,6 +18,7 @@ class BaseModel(nn.Module):
         self.gelu = nn.GELU()
         self.tanh = nn.Tanh()
         self.labelNumber = labelNumber
+        self.margin = margin
 
     def forward(self, input_ids, attention_mask, labels, token_type_ids):
         if token_type_ids is None:
@@ -41,7 +42,7 @@ class BaseModel(nn.Module):
 
 
 class Star_Label_AM(nn.Module):
-    def __init__(self, transformers_mode, model_type, model_name_or_path, config, labelNumber):
+    def __init__(self, transformers_mode, model_type, model_name_or_path, config, labelNumber, margin=-0.5):
         super(Star_Label_AM, self).__init__()
         self.emb = AutoModel.from_pretrained(transformers_mode)
         self.dense = nn.Linear(768, 768)
@@ -52,6 +53,7 @@ class Star_Label_AM(nn.Module):
         self.gelu = nn.GELU()
         self.tanh = nn.Tanh()
         self.labelNumber = labelNumber
+        self.margin = margin
 
     def forward(self, input_ids, attention_mask, labels, token_type_ids):
         if token_type_ids is None:
@@ -72,7 +74,7 @@ class Star_Label_AM(nn.Module):
 
         loss_fct = nn.CrossEntropyLoss()
         loss1 = loss_fct(outputs.view(-1, self.labelNumber), labels.view(-1))
-        loss_fn = torch.nn.CosineEmbeddingLoss(reduction='mean', margin=-0.5)
+        loss_fn = torch.nn.CosineEmbeddingLoss(reduction='mean', margin=self.margin)
         loss2s = []
         for i in range(batch_size):
             diff_indexs = labels == labels[i].repeat(batch_size)
@@ -97,7 +99,7 @@ class Star_Label_AM(nn.Module):
 
 
 class Star_Label_AM_w_linear(nn.Module):
-    def __init__(self, transformers_mode, model_type, model_name_or_path, config, labelNumber):
+    def __init__(self, transformers_mode, model_type, model_name_or_path, config, labelNumber, margin=-0.5):
         super(Star_Label_AM_w_linear, self).__init__()
         self.emb = AutoModel.from_pretrained(transformers_mode)
         self.dense = nn.Linear(768, 768)
@@ -108,6 +110,7 @@ class Star_Label_AM_w_linear(nn.Module):
         self.gelu = nn.GELU()
         self.tanh = nn.Tanh()
         self.labelNumber = labelNumber
+        self.margin = margin
 
     def forward(self, input_ids, attention_mask, labels, token_type_ids):
         if token_type_ids is None:
@@ -128,7 +131,7 @@ class Star_Label_AM_w_linear(nn.Module):
 
         loss_fct = nn.CrossEntropyLoss()
         loss1 = loss_fct(outputs.view(-1, self.labelNumber), labels.view(-1))
-        loss_fn = torch.nn.CosineEmbeddingLoss(reduction='mean', margin=-0.5)
+        loss_fn = torch.nn.CosineEmbeddingLoss(reduction='mean', margin=self.margin)
         loss2s = []
         for i in range(batch_size):
             diff_indexs = labels == labels[i].repeat(batch_size)
@@ -157,7 +160,7 @@ class Star_Label_AM_w_linear(nn.Module):
         return result
 
 class Star_Label_AM_att(nn.Module):
-    def __init__(self, model_type, model_name_or_path, config):
+    def __init__(self, model_type, model_name_or_path, config, margin=-0.5):
         super(Star_Label_AM_att, self).__init__()
         self.emb = MODEL_ORIGINER[model_type].from_pretrained(
             model_name_or_path,
@@ -171,6 +174,7 @@ class Star_Label_AM_att(nn.Module):
         self.gelu = nn.GELU()
         self.tanh = nn.Tanh()
         self.att_w = nn.Parameter(torch.randn(1, 768, 1))
+        self.margin = margin
 
     def attention_net(self, lstm_output, input):
         batch_size, seq_len = input.shape
@@ -211,7 +215,7 @@ class Star_Label_AM_att(nn.Module):
         y = labels.unsqueeze(0).repeat(batch_size, 1).type(torch.FloatTensor).to(self.config.device)
         for i, t in enumerate(y):
             y[i] = (t == t[i]).double() * 2 - 1
-        loss_fn = torch.nn.CosineEmbeddingLoss(reduction='mean', margin=-0.5)
+        loss_fn = torch.nn.CosineEmbeddingLoss(reduction='mean', margin=self.margin)
         loss2 = loss_fn(x1.view(-1, w2v_dim),
                         x2.view(-1, w2v_dim),
                         y.view(-1))
@@ -228,7 +232,7 @@ class Star_Label_AM_att(nn.Module):
         return result
 
 class Star_Label_ANN(nn.Module):
-    def __init__(self, transformers_mode, model_type, model_name_or_path, config, labelNumber):
+    def __init__(self, transformers_mode, model_type, model_name_or_path, config, labelNumber, margin=-0.5):
         super(Star_Label_ANN, self).__init__()
         self.emb = AutoModel.from_pretrained(transformers_mode)
         self.dense = nn.Linear(768, 768)
@@ -239,6 +243,7 @@ class Star_Label_ANN(nn.Module):
         self.gelu = nn.GELU()
         self.tanh = nn.Tanh()
         self.labelNumber = labelNumber
+        self.margin = margin
 
     def forward(self, input_ids, attention_mask, labels, token_type_ids):
         if token_type_ids is None:
@@ -259,7 +264,7 @@ class Star_Label_ANN(nn.Module):
 
         loss_fct = nn.CrossEntropyLoss()
         loss1 = loss_fct(outputs.view(-1, self.labelNumber), labels.view(-1))
-        loss_fn = torch.nn.CosineEmbeddingLoss(reduction='mean', margin=-0.5)
+        loss_fn = torch.nn.CosineEmbeddingLoss(reduction='mean', margin=self.margin)
         loss2s = []
         for i in range(batch_size):
             diff_indexs = labels != labels[i].repeat(batch_size)
@@ -284,7 +289,7 @@ class Star_Label_ANN(nn.Module):
 
 
 class Star_Label_ANN_w_linear(nn.Module):
-    def __init__(self, transformers_mode, model_type, model_name_or_path, config, labelNumber):
+    def __init__(self, transformers_mode, model_type, model_name_or_path, config, labelNumber, margin=-0.5):
         super(Star_Label_ANN_w_linear, self).__init__()
         self.emb = AutoModel.from_pretrained(transformers_mode)
         self.dense = nn.Linear(768, 768)
@@ -295,6 +300,7 @@ class Star_Label_ANN_w_linear(nn.Module):
         self.gelu = nn.GELU()
         self.tanh = nn.Tanh()
         self.labelNumber = labelNumber
+        self.margin = margin
 
     def forward(self, input_ids, attention_mask, labels, token_type_ids):
         if token_type_ids is None:
@@ -315,7 +321,7 @@ class Star_Label_ANN_w_linear(nn.Module):
 
         loss_fct = nn.CrossEntropyLoss()
         loss1 = loss_fct(outputs.view(-1, self.labelNumber), labels.view(-1))
-        loss_fn = torch.nn.CosineEmbeddingLoss(reduction='mean', margin=-0.5)
+        loss_fn = torch.nn.CosineEmbeddingLoss(reduction='mean', margin=self.margin)
         loss2s = []
         for i in range(batch_size):
             diff_indexs = labels != labels[i].repeat(batch_size)

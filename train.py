@@ -270,6 +270,7 @@ def main(cli_args):
 
     args.output_dir = os.path.join(args.ckpt_dir, cli_args.result_dir)
     args.model_mode = cli_args.model_mode
+    args.margin = cli_args.margin
 
     init_logger()
     set_seed(args)
@@ -285,7 +286,7 @@ def main(cli_args):
     tokenizer = AutoTokenizer.from_pretrained(model_link)
 
     args.test_file = os.path.join(cli_args.dataset, args.test_file)
-    args.dev_file = os.path.join(cli_args.dataset, args.train_file)
+    args.dev_file = os.path.join(cli_args.dataset, args.dev_file)
     args.train_file = os.path.join(cli_args.dataset, args.train_file)
     # Load dataset
     train_dataset = DATASET_LIST[cli_args.model_mode](args, tokenizer, mode="train") if args.train_file else None
@@ -309,7 +310,7 @@ def main(cli_args):
 
 
 
-    model = MODEL_LIST[cli_args.model_mode](model_link, args.model_type, args.model_name_or_path, config, labelNumber)
+    model = MODEL_LIST[cli_args.model_mode](model_link, args.model_type, args.model_name_or_path, config, labelNumber, args.margin)
     model.to(args.device)
 
     if args.do_train:
@@ -352,6 +353,7 @@ if __name__ == '__main__':
     cli_parser.add_argument("--model_mode", type=str, required=True, choices=MODEL_LIST.keys())
     cli_parser.add_argument("--transformer_mode", type=str, required=True)
     cli_parser.add_argument("--gpu", type=str, default = 0)
+    cli_parser.add_argument("--margin", type=float, default = -0.5)
 
     cli_args = cli_parser.parse_args()
 

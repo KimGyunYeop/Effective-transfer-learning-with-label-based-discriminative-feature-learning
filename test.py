@@ -9,6 +9,10 @@ from fastprogress.fastprogress import progress_bar
 from datasets import DATASET_LIST, BaseDataset
 import pandas as pd
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.decomposition import PCA
+
 from model import *
 import json
 
@@ -19,6 +23,7 @@ from src import (
     compute_metrics,
     set_seed
 )
+
 from transformers import (
     AdamW,
     get_linear_schedule_with_warmup,
@@ -77,6 +82,7 @@ def evaluate(args, model, eval_dataset, mode, global_step=None):
 
             outputs = model(**inputs)
             tmp_eval_loss, logits = outputs[:2]
+            print(outputs[2].shape)
 
             if type(tmp_eval_loss) == tuple:
                 # print(list(map(lambda x:x.item(),tmp_eval_loss)))

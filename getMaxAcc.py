@@ -18,7 +18,10 @@ setting = torch.load(os.path.join(setting_path, "training_args.bin"))
 print("setting")
 print(setting)
 
-result_path = os.path.join("ckpt", args.result_dir, "test")
+if os.path.exists(os.path.join("ckpt", args.result_dir, "dev")):
+    result_path = os.path.join("ckpt", args.result_dir, "dev")
+else:
+    result_path = os.path.join("ckpt", args.result_dir, "test")
 epoch_list = os.listdir(result_path)
 
 acc_dict = dict()
