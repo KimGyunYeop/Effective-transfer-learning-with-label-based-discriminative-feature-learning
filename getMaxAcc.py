@@ -27,7 +27,7 @@ epoch_list = os.listdir(result_path)
 acc_dict = dict()
 for i in epoch_list:
     with open(os.path.join(result_path,i),"r") as fp:
-        acc_dict[int(i[5:-4])] = float(fp.readline().split()[-1])
+        acc_dict[int(i.split("-")[-1].split(".")[0])] = float(fp.readline().split()[-1])
 
 reversed_dict = { y:x for x,y in acc_dict.items()}
 acc_dict = sorted(acc_dict.items())

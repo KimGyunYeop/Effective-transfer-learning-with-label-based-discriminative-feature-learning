@@ -282,14 +282,19 @@ def main(cli_args):
         model_link = "google/electra-base-discriminator"
     elif cli_args.transformer_mode.upper() == "ALBERT":
         model_link = "albert-base-v2"
+    elif cli_args.transformer_mode.upper() == "ROBERTA":
+        model_link = "roberta-base"
+    elif cli_args.transformer_mode.upper() == "BERT":
+        model_link = "bert-base-uncased"
 
+    print(model_link)
     tokenizer = AutoTokenizer.from_pretrained(model_link)
 
     args.test_file = os.path.join(cli_args.dataset, args.test_file)
     args.dev_file = os.path.join(cli_args.dataset, args.dev_file)
     args.train_file = os.path.join(cli_args.dataset, args.train_file)
     # Load dataset
-    train_dataset = DATASET_LIST[cli_args.model_mode](args, tokenizer, mode="train") if args.train_file else None
+    train_dataset = BaseDataset(args, tokenizer, mode="train") if args.train_file else None
     dev_dataset = BaseDataset(args, tokenizer, mode="dev") if args.dev_file else None
     test_dataset = BaseDataset(args, tokenizer, mode="test") if args.test_file else None
 

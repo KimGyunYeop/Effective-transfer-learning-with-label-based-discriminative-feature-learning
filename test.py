@@ -6,12 +6,15 @@ from attrdict import AttrDict
 import numpy as np
 from torch.utils.data import DataLoader, SequentialSampler
 from fastprogress.fastprogress import progress_bar
-from datasets import DATASET_LIST, BaseDataset
+from datasets import BaseDataset
 import pandas as pd
 
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.decomposition import PCA
+from sklearn.decomposition import *
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans,DBSCAN
+from sklearn.metrics.cluster import completeness_score
 
 from model import *
 import json
@@ -33,7 +36,6 @@ from transformers import (
 
 logger = logging.getLogger(__name__)
 
-
 def evaluate(args, model, eval_dataset, mode, global_step=None):
     results = {}
     eval_sampler = SequentialSampler(eval_dataset)
@@ -54,6 +56,7 @@ def evaluate(args, model, eval_dataset, mode, global_step=None):
     out_label_ids = None
     txt_all = []
     ep_loss = []
+    pcaDF = pd.DataFrame(columns=['principal component 1', 'principal component 2', "label"])
 
     for (batch, txt) in progress_bar(eval_dataloader):
         model.eval()
@@ -82,7 +85,15 @@ def evaluate(args, model, eval_dataset, mode, global_step=None):
 
             outputs = model(**inputs)
             tmp_eval_loss, logits = outputs[:2]
-            print(outputs[2].shape)
+            emb = outputs[2].detach().cpu().numpy()
+            labels = inputs["labels"].detach().cpu().numpy()
+
+            pca = PCA(n_components=2)
+            principalComponents = pca.fit_transform(emb)
+            principalDf = pd.DataFrame(data=principalComponents
+                                       , columns=['principal component 1', 'principal component 2'])
+            principalDf["label"] = labels
+            pcaDF = pd.concat([pcaDF,principalDf], ignore_index=True)
 
             if type(tmp_eval_loss) == tuple:
                 # print(list(map(lambda x:x.item(),tmp_eval_loss)))
@@ -102,6 +113,35 @@ def evaluate(args, model, eval_dataset, mode, global_step=None):
 
     eval_loss = eval_loss / nb_eval_steps
     preds = np.argmax(preds, axis=1)
+
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_subplot(1, 1, 1)
+    ax.set_xlabel('Principal Component 1', fontsize=15)
+    ax.set_ylabel('Principal Component 2', fontsize=15)
+    ax.set_title('2 Component PCA', fontsize=20)
+
+    colors = ["#7fc97f", "#beaed4", "#fdc086", "#ffff99", "#386cb0", "#f0027f", "", "#666666"]
+    label_list = set(labels)
+    colors = colors[:len(label_list)]
+    print(pcaDF)
+    for label, color in zip(label_list, colors):
+        indicesToKeep = pcaDF['label'] == label
+        ax.scatter(pcaDF.loc[indicesToKeep, 'principal component 1']
+                   , pcaDF.loc[indicesToKeep, 'principal component 2']
+                   , c=color
+                   , s=10)
+
+    ax.legend(label_list)
+    ax.grid()
+    plt.show()
+
+    kmeans = KMeans(n_clusters=2, random_state=0).fit(pcaDF.loc[:,['principal component 1','principal component 2']])
+    print(kmeans.labels_)
+    print(completeness_score(pcaDF['label'], kmeans.labels_))
+    dbscan = DBSCAN(eps=3, min_samples=2).fit(pcaDF.loc[:,['principal component 1','principal component 2']])
+    print(dbscan.labels_)
+    print(set(dbscan.labels_))
+    print(completeness_score(pcaDF['label'], dbscan.labels_))
 
     result = compute_metrics(out_label_ids, preds)
     results.update(result)
@@ -145,6 +185,10 @@ def main(cli_args):
         model_link = "google/electra-base-discriminator"
     elif cli_args.transformer_mode.upper() == "ALBERT":
         model_link = "albert-base-v2"
+    elif cli_args.transformer_mode.upper() == "ROBERTA":
+        model_link = "roberta-base"
+    elif cli_args.transformer_mode.upper() == "BERT":
+        model_link = "bert-base-uncased"
 
     tokenizer = AutoTokenizer.from_pretrained(model_link)
 
@@ -152,7 +196,7 @@ def main(cli_args):
     args.dev_file = os.path.join(cli_args.dataset, args.train_file)
     args.train_file = os.path.join(cli_args.dataset, args.train_file)
     # Load dataset
-    train_dataset = DATASET_LIST[cli_args.model_mode](args, tokenizer, mode="train") if args.train_file else None
+    train_dataset = BaseDataset(args, tokenizer, mode="train") if args.train_file else None
     dev_dataset = BaseDataset(args, tokenizer, mode="dev") if args.dev_file else None
     test_dataset = BaseDataset(args, tokenizer, mode="test") if args.test_file else None
 
@@ -178,7 +222,7 @@ def main(cli_args):
     config.device = args.device
     args.model_mode = cli_args.model_mode
 
-    model = MODEL_LIST[cli_args.model_mode](model_link, args.model_type, args.model_name_or_path, config, labelNumber)
+    model = MODEL_LIST[cli_args.model_mode](model_link, args.model_type, args.model_name_or_path, config, labelNumber, -0.75)
     model.load_state_dict(torch.load(os.path.join("ckpt", cli_args.result_dir, max_checkpoint, "training_model.bin")))
 
     model.to(args.device)
@@ -195,7 +239,7 @@ def main(cli_args):
     pred_and_labels["tokenizer"] = decode_result
 
     pred_and_labels.to_csv(os.path.join("ckpt", cli_args.result_dir, "test_result_" + max_checkpoint + ".csv"),
-                             encoding="cp949")
+                             encoding="utf-8")
 
 
 if __name__ == '__main__':
@@ -208,6 +252,7 @@ if __name__ == '__main__':
     cli_parser.add_argument("--model_mode", type=str, required=True, choices=MODEL_LIST.keys())
     cli_parser.add_argument("--transformer_mode", type=str, required=True)
     cli_parser.add_argument("--gpu", type=str, default = 0)
+    cli_parser.add_argument("--margin", type=float, default = -0.5)
 
     cli_args = cli_parser.parse_args()
 

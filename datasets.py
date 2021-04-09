@@ -27,7 +27,7 @@ class BaseDataset(Dataset):
 
     def __getitem__(self, idx):
         txt = str(self.dataset.at[idx,"data"])
-        data = self.tokenizer(txt, pad_to_max_length=True, max_length=self.maxlen, truncation=True)
+        data = self.tokenizer(txt, padding="max_length", max_length=self.maxlen, truncation=True)
         input_ids = torch.LongTensor(data["input_ids"])
         try:
             token_type_ids = torch.LongTensor(data["token_type_ids"])
@@ -45,9 +45,6 @@ class BaseDataset(Dataset):
 
 DATASET_LIST = {
     "Star_Label_AM": BaseDataset,
-    "Star_Label_AM_w_linear": BaseDataset,
     "Star_Label_ANN" : BaseDataset,
-    "Star_Label_ANN_w_linear" : BaseDataset,
-    "Star_Label_AM_att": BaseDataset,
     "BaseModel": BaseDataset
 }

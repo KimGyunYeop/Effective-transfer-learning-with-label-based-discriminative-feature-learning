@@ -17,7 +17,7 @@ result_dir_list = os.listdir("ckpt")
 for result_dir in result_dir_list[::-1]:
     k = False
     if args.keyword is not None:
-        for keyword in args.keyword.split(" "):
+        for keyword in args.keyword.split(","):
             if not (keyword in result_dir):
                 k = True
 
@@ -39,7 +39,7 @@ for result_dir in result_dir_list[::-1]:
     acc_dict = dict()
     for i in epoch_list:
         with open(os.path.join(result_path,i),"r") as fp:
-            acc_dict[int(i[5:-4])] = float(fp.readline().split()[-1])
+            acc_dict[int(i.split("-")[-1].split(".")[0])] = float(fp.readline().split()[-1])
 
     reversed_dict = { y:x for x,y in acc_dict.items()}
     acc_dict = sorted(acc_dict.items())

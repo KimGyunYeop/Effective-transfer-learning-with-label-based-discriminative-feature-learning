@@ -10,8 +10,7 @@ from transformers import AutoModel
 class BaseModel(nn.Module):
     def __init__(self, transformers_mode, model_type, model_name_or_path, config, labelNumber, margin=-0.5):
         super(BaseModel, self).__init__()
-        self.transformers_mode = transformers_mode
-        self.emb = AutoModel.from_pretrained(self.transformers_mode)
+        self.emb = AutoModel.from_pretrained(transformers_mode)
         self.dense = nn.Linear(768, 768)
         self.dropout = nn.Dropout(0.2)
         self.out_proj = nn.Linear(768, labelNumber)
@@ -26,9 +25,10 @@ class BaseModel(nn.Module):
             outputs = self.emb(input_ids=input_ids, attention_mask=attention_mask)
         else:
             outputs = self.emb(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
-        embs = outputs[0][:, 0, :].squeeze()
+        embs = outputs[0]
+        batch_size, seq_len, w2v_dim = embs.shape
 
-        outputs = self.dense(embs)
+        outputs = self.dense(embs[:, 0, :])
         outputs = self.gelu(outputs)
         outputs = self.dropout(outputs)
         outputs = self.out_proj(outputs)
@@ -36,7 +36,7 @@ class BaseModel(nn.Module):
         loss_fct = nn.CrossEntropyLoss()
         loss1 = loss_fct(outputs.view(-1, self.labelNumber), labels.view(-1))
 
-        result = (loss1, outputs, embs)
+        result = (loss1, outputs, embs[:, 0, :])
 
         return result
 
@@ -44,8 +44,7 @@ class BaseModel(nn.Module):
 class Star_Label_AM(nn.Module):
     def __init__(self, transformers_mode, model_type, model_name_or_path, config, labelNumber, margin=-0.5):
         super(Star_Label_AM, self).__init__()
-        self.transformers_mode = transformers_mode
-        self.emb = AutoModel.from_pretrained(self.transformers_mode)
+        self.emb = AutoModel.from_pretrained(transformers_mode)
         self.dense = nn.Linear(768, 768)
         self.dropout = nn.Dropout(0.2)
         self.out_proj = nn.Linear(768, labelNumber)
@@ -63,9 +62,8 @@ class Star_Label_AM(nn.Module):
             outputs = self.emb(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
         embs = outputs[0]
         batch_size, seq_len, w2v_dim = embs.shape
-        embs = outputs[0][:, 0, :].squeeze()
 
-        outputs = self.dense(embs)
+        outputs = self.dense(embs[:, 0, :])
         outputs = self.gelu(outputs)
         outputs = self.dropout(outputs)
         outputs = self.out_proj(outputs)
@@ -80,8 +78,8 @@ class Star_Label_AM(nn.Module):
         loss2s = []
         for i in range(batch_size):
             diff_indexs = labels == labels[i].repeat(batch_size)
-            diff_label_datas = embs[diff_indexs, :].squeeze()
-            stretch_ori_datas = embs[i, :].repeat(sum(diff_indexs),1)
+            diff_label_datas = embs[diff_indexs,0,:].squeeze()
+            stretch_ori_datas = embs[i, 0, :].repeat(sum(diff_indexs),1)
             loss2s.append(loss_fn(diff_label_datas.view(-1, w2v_dim),
                         stretch_ori_datas.view(-1, w2v_dim),
                         torch.ones(sum(diff_indexs)).to(self.config.device)))
@@ -91,19 +89,18 @@ class Star_Label_AM(nn.Module):
         #calculate loss with same label's represntation vector
         star = self.star_emb(labels)
 
-        loss3 = loss_fn(embs,
+        loss3 = loss_fn(embs[:, 0, :].squeeze(),
                         star,
                         torch.ones(batch_size).to(self.config.device))
 
-        result = ((loss1, 0.5 * loss2, 0.5 * loss3), outputs, embs)
+        result = ((loss1, 0.5 * loss2, 0.5 * loss3), outputs, embs[:, 0, :])
 
         return result
 
 class AM(nn.Module):
     def __init__(self, transformers_mode, model_type, model_name_or_path, config, labelNumber, margin=-0.5):
         super(AM, self).__init__()
-        self.transformers_mode = transformers_mode
-        self.emb = AutoModel.from_pretrained(self.transformers_mode)
+        self.emb = AutoModel.from_pretrained(transformers_mode)
         self.dense = nn.Linear(768, 768)
         self.dropout = nn.Dropout(0.2)
         self.out_proj = nn.Linear(768, labelNumber)
@@ -121,9 +118,8 @@ class AM(nn.Module):
             outputs = self.emb(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
         embs = outputs[0]
         batch_size, seq_len, w2v_dim = embs.shape
-        embs = outputs[0][:, 0, :].squeeze()
 
-        outputs = self.dense(embs)
+        outputs = self.dense(embs[:, 0, :])
         outputs = self.gelu(outputs)
         outputs = self.dropout(outputs)
         outputs = self.out_proj(outputs)
@@ -138,15 +134,15 @@ class AM(nn.Module):
         loss2s = []
         for i in range(batch_size):
             diff_indexs = labels == labels[i].repeat(batch_size)
-            diff_label_datas = embs[diff_indexs, :].squeeze()
-            stretch_ori_datas = embs[i, :].repeat(sum(diff_indexs),1)
+            diff_label_datas = embs[diff_indexs,0,:].squeeze()
+            stretch_ori_datas = embs[i, 0, :].repeat(sum(diff_indexs),1)
             loss2s.append(loss_fn(diff_label_datas.view(-1, w2v_dim),
                         stretch_ori_datas.view(-1, w2v_dim),
                         torch.ones(sum(diff_indexs)).to(self.config.device)))
 
         loss2 = sum(loss2s)/len(loss2s)
 
-        result = ((loss1, loss2), outputs, embs)
+        result = ((loss1, loss2), outputs, embs[:, 0, :])
 
         return result
 
@@ -197,10 +193,10 @@ class Star_Label_AM_att(nn.Module):
         loss1 = loss_fct(outputs.view(-1, 2), labels.view(-1))
 
         #make 2 data for match all2all data
-        x1 = embs
+        x1 = embs[:, 0, :].squeeze()
         x1 = x1.repeat(1, batch_size)
         x1 = x1.view(batch_size, batch_size, w2v_dim)
-        x2 = embs
+        x2 = embs[:, 0, :].squeeze()
         x2 = x2.unsqueeze(0)
         x2 = x2.repeat(batch_size, 1, 1)
         y = labels.unsqueeze(0).repeat(batch_size, 1).type(torch.FloatTensor).to(self.config.device)
@@ -214,19 +210,18 @@ class Star_Label_AM_att(nn.Module):
         #calculate loss with same label's represntation vector
         star = self.star_emb(labels)
 
-        loss3 = loss_fn(embs,
+        loss3 = loss_fn(embs[:, 0, :].squeeze(),
                         star,
                         torch.ones(batch_size).to(self.config.device))
 
-        result = ((loss1, 0.5 * loss2, 0.5 * loss3), outputs, embs)
+        result = ((loss1, 0.5 * loss2, 0.5 * loss3), outputs, embs[:, 0, :])
 
         return result
 
 class Star_Label_ANN(nn.Module):
     def __init__(self, transformers_mode, model_type, model_name_or_path, config, labelNumber, margin=-0.5):
         super(Star_Label_ANN, self).__init__()
-        self.transformers_mode = transformers_mode
-        self.emb = AutoModel.from_pretrained(self.transformers_mode)
+        self.emb = AutoModel.from_pretrained(transformers_mode)
         self.dense = nn.Linear(768, 768)
         self.dropout = nn.Dropout(0.2)
         self.out_proj = nn.Linear(768, labelNumber)
@@ -244,9 +239,8 @@ class Star_Label_ANN(nn.Module):
             outputs = self.emb(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
         embs = outputs[0]
         batch_size, seq_len, w2v_dim = embs.shape
-        embs = outputs[0][:, 0, :].squeeze()
 
-        outputs = self.dense(embs)
+        outputs = self.dense(embs[:, 0, :])
         outputs = self.gelu(outputs)
         outputs = self.dropout(outputs)
         outputs = self.out_proj(outputs)
@@ -261,8 +255,8 @@ class Star_Label_ANN(nn.Module):
         loss2s = []
         for i in range(batch_size):
             diff_indexs = labels != labels[i].repeat(batch_size)
-            diff_label_datas = embs[diff_indexs, :].squeeze()
-            stretch_ori_datas = embs[i, :].repeat(sum(diff_indexs),1)
+            diff_label_datas = embs[diff_indexs,0,:].squeeze()
+            stretch_ori_datas = embs[i, 0, :].repeat(sum(diff_indexs),1)
             loss2s.append(loss_fn(diff_label_datas.view(-1, w2v_dim),
                         stretch_ori_datas.view(-1, w2v_dim),
                         -torch.ones(sum(diff_indexs)).to(self.config.device)))
@@ -272,19 +266,18 @@ class Star_Label_ANN(nn.Module):
         #calculate loss with same label's represntation vector
         star = self.star_emb(labels)
 
-        loss3 = loss_fn(embs,
+        loss3 = loss_fn(embs[:, 0, :].squeeze(),
                         star,
                         torch.ones(batch_size).to(self.config.device))
 
-        result = ((loss1, 0.5 * loss2, 0.5 * loss3), outputs, embs)
+        result = ((loss1, 0.5 * loss2, 0.5 * loss3), outputs, embs[:, 0, :])
 
         return result
 
 class ANN(nn.Module):
     def __init__(self, transformers_mode, model_type, model_name_or_path, config, labelNumber, margin=-0.5):
         super(ANN, self).__init__()
-        self.transformers_mode = transformers_mode
-        self.emb = AutoModel.from_pretrained(self.transformers_mode)
+        self.emb = AutoModel.from_pretrained(transformers_mode)
         self.dense = nn.Linear(768, 768)
         self.dropout = nn.Dropout(0.2)
         self.out_proj = nn.Linear(768, labelNumber)
@@ -302,9 +295,8 @@ class ANN(nn.Module):
             outputs = self.emb(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
         embs = outputs[0]
         batch_size, seq_len, w2v_dim = embs.shape
-        embs = outputs[0][:, 0, :].squeeze()
 
-        outputs = self.dense(embs)
+        outputs = self.dense(embs[:, 0, :])
         outputs = self.gelu(outputs)
         outputs = self.dropout(outputs)
         outputs = self.out_proj(outputs)
@@ -319,15 +311,15 @@ class ANN(nn.Module):
         loss2s = []
         for i in range(batch_size):
             diff_indexs = labels != labels[i].repeat(batch_size)
-            diff_label_datas = embs[diff_indexs,:].squeeze()
-            stretch_ori_datas = embs[i, :].repeat(sum(diff_indexs),1)
+            diff_label_datas = embs[diff_indexs,0,:].squeeze()
+            stretch_ori_datas = embs[i, 0, :].repeat(sum(diff_indexs),1)
             loss2s.append(loss_fn(diff_label_datas.view(-1, w2v_dim),
                         stretch_ori_datas.view(-1, w2v_dim),
                         -torch.ones(sum(diff_indexs)).to(self.config.device)))
 
         loss2 = sum(loss2s)/len(loss2s)
 
-        result = ((loss1, loss2,), outputs, embs)
+        result = ((loss1, loss2,), outputs, embs[:, 0, :])
 
         return result
 
