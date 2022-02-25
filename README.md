@@ -1,5 +1,3 @@
-논문 실험
+Experimnet code of "Effective transfer learning with label-based discriminative feature learning"
 
-#REFERENCE   
-
-koELECTRA
+requirement is 
