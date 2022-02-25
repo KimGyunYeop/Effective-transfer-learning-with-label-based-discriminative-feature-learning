@@ -4,7 +4,7 @@ requirement package is writing in requirement.txt
 
 This project requires the following data format.(.tsv)
 
-  data  label
-  dddaaatttttaaaaaa1  label1
-  ddaaattaaa2  label2
+  data  label  
+  dddaaatttttaaaaaa1  label1  
+  ddaaattaaa2  label2  
 
